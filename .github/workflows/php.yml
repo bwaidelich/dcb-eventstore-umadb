@@ -22,6 +22,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential autoconf automake libtool
+
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
