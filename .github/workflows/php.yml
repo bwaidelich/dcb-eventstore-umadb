@@ -41,6 +41,7 @@ jobs:
         run: |
           git clone https://github.com/bwaidelich/umadb-php.git /tmp/umadb-php
           cd /tmp/umadb-php
+          export PATH="$HOME/.cargo/bin:$PATH"
           ./build.sh
           sudo make install
           echo "extension=umadb.so" | sudo tee $(php-config --ini-dir)/99-umadb.ini
