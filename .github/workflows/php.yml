@@ -32,14 +32,11 @@ jobs:
         with:
           php-version: ${{ matrix.php-versions }}
           extensions: pdo_mysql, pdo_sqlite, pdo_pgsql
+          tools: pie
 
       - name: Install UmaDB PHP extension
         run: |
-          git clone https://github.com/bwaidelich/umadb-php.git /tmp/umadb-php
-          cd /tmp/umadb-php
-          ./build.sh
-          sudo make install
-          echo "extension=umadb.so" | sudo tee $(php-config --ini-dir)/99-umadb.ini
+          pie install wwwision/umadb-php
           php -m | grep umadb
 
       #    - name: Validate composer.json and composer.lock
