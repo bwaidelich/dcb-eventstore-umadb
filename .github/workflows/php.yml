@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    strategy:
+      matrix:
+        php-versions: [ '8.4' ]
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential protobuf-compiler
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: false
+
+      - name: Configure Rust default toolchain
+        run: rustup default stable
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+          extensions: pdo_mysql, pdo_sqlite, pdo_pgsql
+
+      - name: Install UmaDB PHP extension
+        run: |
+          git clone https://github.com/bwaidelich/umadb-php.git /tmp/umadb-php
+          cd /tmp/umadb-php
+          source "$HOME/.cargo/env"
+          ./build.sh
+          sudo cp target/release/libumadb.so $(php-config --extension-dir)/umadb.so
+          echo "extension=umadb.so" | sudo tee $(php-config --ini-dir)/99-umadb.ini
+          php -m | grep umadb
+
+      #    - name: Validate composer.json and composer.lock
+      #      run: composer validate --strict
+
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run tests
+        run: composer run-script test
