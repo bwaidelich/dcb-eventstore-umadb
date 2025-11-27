@@ -46,7 +46,7 @@ jobs:
           cd /tmp/umadb-php
           source "$HOME/.cargo/env"
           ./build.sh
-          sudo env PATH="$PATH" make install
+          sudo env PATH="$PATH" RUSTUP_HOME="$RUSTUP_HOME" CARGO_HOME="$CARGO_HOME" make install
           echo "extension=umadb.so" | sudo tee $(php-config --ini-dir)/99-umadb.ini
           php -m | grep umadb
 
