@@ -2,54 +2,65 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
+
+permissions:
+  contents: read
 
 jobs:
-  php:
+  build:
+
+    strategy:
+      matrix:
+        php-versions: [ '8.4' ]
+
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential protobuf-compiler
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: false
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4' # adjust as needed
-          coverage: none
+          php-version: ${{ matrix.php-versions }}
+          extensions: pdo_mysql, pdo_sqlite, pdo_pgsql
 
-      - name: Install php-extension-installer (PIE)
+      - name: Install UmaDB PHP extension
         run: |
-          curl -sSLo php-extension-installer.phar \
-            "https://github.com/mlocati/php-extension-installer/releases/latest/download/php-extension-installer.phar"
-          chmod +x php-extension-installer.phar
-          sudo mv php-extension-installer.phar /usr/local/bin/php-extension-installer
+          git clone https://github.com/bwaidelich/umadb-php.git /tmp/umadb-php
+          cd /tmp/umadb-php
+          export PATH="$HOME/.cargo/bin:$PATH"
+          ./build.sh
+          sudo make install
+          echo "extension=umadb.so" | sudo tee $(php-config --ini-dir)/99-umadb.ini
+          php -m | grep umadb
 
-      - name: Try installing UmaDB via PIE, fallback to building
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-        run: |
-          set -euo pipefail
-          # Replace 'uma_db' with the extension name published to PECL/PIE if different.
-          EXT_NAME="uma_db"
-          echo "Attempting to install ${EXT_NAME} via php-extension-installer (PIE)..."
-          if /usr/local/bin/php-extension-installer "${EXT_NAME}"; then
-            echo "Extension ${EXT_NAME} installed via PIE — skipping source build."
-            php -m | grep -i "${EXT_NAME}" || true
-          else
-            echo "PIE installation failed or extension not available. Falling back to building from source."
+      #    - name: Validate composer.json and composer.lock
+      #      run: composer validate --strict
 
-            # Install Rust toolchain so `cargo` is available for the repository build
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-            export PATH="$HOME/.cargo/bin:$PATH"
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
 
-            # Build the extension from repo (make uses cargo)
-            make build
-          fi
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
 
       - name: Run tests
-        run: |
-          # Replace with your actual test commands, e.g. phpunit or integration tests
-          echo "Run your test suite here"
+        run: composer run-script test
