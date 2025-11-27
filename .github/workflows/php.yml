@@ -31,6 +31,9 @@ jobs:
           toolchain: stable
           cache: false
 
+      - name: Configure Rust default toolchain
+        run: rustup default stable
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
