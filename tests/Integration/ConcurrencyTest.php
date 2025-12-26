@@ -34,22 +34,22 @@ final class ConcurrencyTest extends EventStoreConcurrencyTestBase
     {
         self::$testContainer?->stop();
         self::$testContainer = null;
-        putenv('DCB_TEST_UMADB_PORT');
+        putenv('DCB_TEST_UMADB_URL');
     }
 
     protected static function createEventStore(): EventStore
     {
         if (self::$eventStore === null) {
-            $mappedPort = getenv('DCB_TEST_UMADB_PORT');
-            if (!is_string($mappedPort)) {
-                self::$testContainer = new GenericContainer('umadb-umadb')
+            $umaDBUrl = getenv('DCB_TEST_UMADB_URL');
+            if (!is_string($umaDBUrl)) {
+                self::$testContainer = new GenericContainer('umadb/umadb')
                     ->withExposedPorts(50051)
-                    ->withWait(new WaitForLog('UmaDB server'))
+                    ->withWait(new WaitForLog('UmaDB started'))
                     ->start();
-                $mappedPort = self::$testContainer->getMappedPort(50051);
-                putenv('DCB_TEST_UMADB_PORT=' . $mappedPort);
+                $umaDBUrl = 'http://' . self::$testContainer->getHost() . ':' . self::$testContainer->getMappedPort(50051);
+                putenv('DCB_TEST_UMADB_URL=' . $umaDBUrl);
             }
-            self::$eventStore = new UmaDbEventStore('http://127.0.0.1:' . $mappedPort);
+            self::$eventStore = UmaDbEventStore::create($umaDBUrl);
         }
         return self::$eventStore;
     }
