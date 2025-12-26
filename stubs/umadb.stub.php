@@ -22,9 +22,10 @@ namespace UmaDB {
          * @param string $url Server URL (e.g., "http://localhost:50051")
          * @param string|null $ca_path Optional path to CA certificate file for TLS
          * @param int|null $batch_size Optional batch size for reading events
+         * @param string|null $api_key Optional API key for authentication
          * @throws \UmaDB\Exception\TransportException If connection fails
          */
-        public function __construct(string $url, ?string $ca_path = null, ?int $batch_size = null) {}
+        public function __construct(string $url, ?string $ca_path = null, ?int $batch_size = null, ?string $api_key = null) {}
 
         /**
          * Read events from the event store

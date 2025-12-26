@@ -36,8 +36,16 @@ final readonly class UmaDbEventStore implements EventStore
     ) {
     }
 
+    /**
+     * @param string $url UmaDB gRPC Url, including port, e.g. `http://127.0.0.1:50051`
+     * @param string|null $apiKey Optional API KEY, see https://umadb.io/cli.html
+     * @param string|null $caPath Optional path to CA certificate, see https://umadb.io/cli.html
+     * @param int|null $batchSize Optional number of events to read at once
+     * @param ClockInterface|null $clock Optional custom clock for event timestamps
+     */
     public static function create(
         string $url,
+        string|null $apiKey = null,
         string|null $caPath = null,
         int|null $batchSize = null,
         ClockInterface|null $clock = null,
@@ -50,7 +58,7 @@ final readonly class UmaDbEventStore implements EventStore
                 }
             };
         }
-        $client = new UmaDBClient($url, $caPath, $batchSize);
+        $client = new UmaDBClient($url, $caPath, $batchSize, $apiKey);
         return new self($client, $clock);
     }
 
