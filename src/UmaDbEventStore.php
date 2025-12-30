@@ -58,6 +58,9 @@ final readonly class UmaDbEventStore implements EventStore
                 }
             };
         }
+        if (!class_exists(UmaDBClient::class)) {
+            throw new RuntimeException(sprintf('Class "%s" does not exist. Is the wwwision/umadb extension installed?', UmaDBClient::class), 1767085778);
+        }
         $client = new UmaDBClient($url, $caPath, $batchSize, $apiKey);
         return new self($client, $clock);
     }
