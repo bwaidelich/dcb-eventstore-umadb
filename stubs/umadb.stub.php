@@ -34,16 +34,16 @@ namespace UmaDB {
          * @param int|null $start Optional starting position
          * @param bool|null $backwards Read backwards from start position
          * @param int|null $limit Optional maximum number of events to return
-         * @param bool|null $subscribe Subscribe to new events (streaming)
          * @return SequencedEvent[] Array of sequenced events
          * @throws \UmaDB\Exception\UmaDBException On error
+         *
+         * Note: As of UmaDB v0.6.0 live streaming is served by a dedicated Subscribe RPC and is no longer part of read().
          */
         public function read(
             ?Query $query = null,
             ?int $start = null,
             ?bool $backwards = null,
-            ?int $limit = null,
-            ?bool $subscribe = null
+            ?int $limit = null
         ): array {}
 
         /**
@@ -78,12 +78,14 @@ namespace UmaDB {
          * @param string $data Binary event data
          * @param string[]|null $tags Optional array of tags for filtering
          * @param string|null $uuid Optional UUID string for idempotency
+         * @param array<string, string>|null $metadata Optional associative array of string key/value metadata
          */
         public function __construct(
             string $event_type,
             string $data,
             ?array $tags = null,
-            ?string $uuid = null
+            ?string $uuid = null,
+            ?array $metadata = null
         ) {}
 
         /**
@@ -113,6 +115,13 @@ namespace UmaDB {
          * @return string|null
          */
         public function getUuid(): ?string {}
+
+        /**
+         * Get the metadata as an associative array
+         *
+         * @return array<string, string>
+         */
+        public function getMetadata(): array {}
 
         /**
          * String representation

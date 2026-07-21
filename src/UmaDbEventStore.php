@@ -29,6 +29,11 @@ use Wwwision\DCBEventStore\SequencedEvent\SequencePosition;
 
 final readonly class UmaDbEventStore implements EventStore
 {
+    /**
+     * Reserved key under which the event's recording timestamp is stored in the native UmaDB metadata field.
+     * The namespaced key avoids collisions with user-provided {@see EventMetadata} keys.
+     */
+    private const RECORDED_AT_METADATA_KEY = 'umadb:recordedAt';
 
     public function __construct(
         private UmaDBClient $client,
@@ -88,16 +93,17 @@ final readonly class UmaDbEventStore implements EventStore
         }
         $convertedEvents = [];
         foreach ($events as $event) {
-            $data = [
-                'payload' => $event->data->value,
-                'metadata' => $event->metadata->value,
-                'recordedAt' => $this->clock->now()->format(DATE_ATOM),
-            ];
+            $metadata = [];
+            foreach ($event->metadata->value as $key => $value) {
+                $metadata[$key] = json_encode($value, JSON_THROW_ON_ERROR);
+            }
+            $metadata[self::RECORDED_AT_METADATA_KEY] = $this->clock->now()->format(DATE_ATOM);
             $convertedEvents[] = new UmaDBEvent(
                 event_type: $event->type->value,
-                data: json_encode($data, JSON_THROW_ON_ERROR),
+                data: $event->data->value,
                 tags: $event->tags->toStrings(),
-                uuid: isset($event->metadata->value['id']) && is_string($event->metadata->value['id']) ? $event->metadata->value['id'] : null
+                uuid: isset($event->metadata->value['id']) && is_string($event->metadata->value['id']) ? $event->metadata->value['id'] : null,
+                metadata: $metadata,
             );
         }
 
@@ -134,21 +140,24 @@ final readonly class UmaDbEventStore implements EventStore
     private static function convertEvent(UmaDBSequencedEvent $sequencedEvent): SequencedEvent
     {
         $umaDbEvent = $sequencedEvent->getEvent();
-        $data = json_decode($umaDbEvent->getData(), true, 512, JSON_THROW_ON_ERROR);
-        Assert::isArray($data);
-        Assert::string($data['recordedAt']);
-        Assert::string($data['payload']);
-        Assert::isMap($data['metadata']);
-        $recordedAt = DateTimeImmutable::createFromFormat(DATE_ATOM, $data['recordedAt']);
-        Assert::isInstanceOf($recordedAt, DateTimeImmutable::class);
+        $metadata = [];
+        $recordedAt = null;
+        foreach ($umaDbEvent->getMetadata() as $key => $value) {
+            if ($key === self::RECORDED_AT_METADATA_KEY) {
+                $recordedAt = DateTimeImmutable::createFromFormat(DATE_ATOM, $value);
+                continue;
+            }
+            $metadata[$key] = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        }
+        Assert::isInstanceOf($recordedAt, DateTimeImmutable::class, 'Failed to read recording timestamp of sequenced event');
         return new SequencedEvent(
             SequencePosition::fromInteger($sequencedEvent->getPosition()),
             $recordedAt,
             Event::create(
                 type: $umaDbEvent->getEventType(),
-                data: $data['payload'],
+                data: $umaDbEvent->getData(),
                 tags: Tags::fromArray(iterator_to_array($umaDbEvent->getTags())),
-                metadata: $data['metadata'],
+                metadata: $metadata,
             ),
         );
     }
